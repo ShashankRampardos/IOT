@@ -31,7 +31,7 @@ const uint8_t digitToSegment[10][7] = {
     {1, 0, 1, 1, 1, 1, 1}, // 6
     {1, 1, 1, 0, 0, 0, 0}, // 7
     {1, 1, 1, 1, 1, 1, 1}, // 8
-    {1, 1, 1, 0, 0, 1, 1}  // 9
+    {1, 1, 1, 1, 0, 1, 1}  // 9
 };
 
 // Setup Function
@@ -65,42 +65,45 @@ void setup() {
   clearDisplay();
 }
 
+int lastDisplayedValue = -1; // Store last displayed value
 // Loop Function
 void loop() {
-  // Measure distance
   float distance = measureDistance();
-  Serial.print("Distance: ");
-  Serial.print(distance);
-  Serial.println(" cm");
-
-  // Control LED based on distance
-  if (distance <= 40) {
-    digitalWrite(BLUE_LED, HIGH);
-  } else {
-    digitalWrite(BLUE_LED, LOW);
+  if(abs(lastDisplayedValue - distance) > 2){//only two centimeter ka fluctuation ko neglect karo, to avoid flickring on 7 segment display even when we hold the device in our hands (our hands shake in air when we hold device and this can cause distance fluctuation, (anti shaking mode))
+    lastDisplayedValue = distance;
+  }else{
+    distance = lastDisplayedValue;
   }
 
-  // Display distance on 7-segment display
-  displayNumber((int)distance);
+  int displayValue = (int)distance;
 
-  delay(1000); // Small delay for smoother updates
+  displayNumber(displayValue); // Update display
+  delayMicroseconds(2000);
+  //digitalWrite(BLUE_LED,  distance <= 40 ? HIGH : LOW);
+  
 }
 
-// Function to measure distance
+//calculate distance 5 times and returns its average (to avoid small fluctuation)
 float measureDistance() {
-  // Send a pulse
-  digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG_PIN, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIG_PIN, LOW);
+  const int samples = 1; // Take 10 samples
+  float total = 0;
 
-  // Measure the pulse duration
-  long duration = pulseIn(ECHO_PIN, HIGH);
+  for (int i = 0; i < samples; i++) {
+    // Trigger ultrasonic sensor
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
 
-  // Calculate distance in cm
-  return duration * 0.0343 / 2;
+    // Measure echo duration
+    long duration = pulseIn(ECHO_PIN, HIGH);
+    total += duration * 0.0343 / 2; // Convert to cm
+  }
+
+  return total / samples; // Return average distance
 }
+
 
 // Function to clear the display
 void clearDisplay() {
@@ -115,10 +118,10 @@ void clearDisplay() {
   digitalWrite(SEG_DP, LOW);
 
   // Turn off all digits
-  digitalWrite(DIGIT1, LOW);
-  digitalWrite(DIGIT2, LOW);
-  digitalWrite(DIGIT3, LOW);
-  digitalWrite(DIGIT4, LOW);
+  digitalWrite(DIGIT1, HIGH);
+  digitalWrite(DIGIT2, HIGH);
+  digitalWrite(DIGIT3, HIGH);
+  digitalWrite(DIGIT4, HIGH);
 }
 
 // Function to display a number on the 7-segment display
@@ -131,11 +134,20 @@ void displayNumber(int number) {
   digits[1] = (number / 100) % 10;
   digits[0] = (number / 1000) % 10;
 
+  auto swap = [](int& x,int& y){
+      x = x^y;
+      y = x^y;
+      x = x^y;
+  };
+  swap(digits[0],digits[3]);
+  swap(digits[1],digits[2]);
+
+  //activateDigits();
   // Display digits one at a time
   for (int i = 0; i < 4; i++) {
     activateDigit(i + 1);
     setSegments(digits[i]);
-    delay(5); // Small delay for multiplexing
+    delayMicroseconds(2000); // Small delay for multiplexing
     deactivateDigits();
   }
 }
@@ -153,16 +165,16 @@ void setSegments(int digit) {
 
 // Function to activate a specific digit
 void activateDigit(int digit) {
-  if (digit == 1) digitalWrite(DIGIT1, HIGH);
-  if (digit == 2) digitalWrite(DIGIT2, HIGH);
-  if (digit == 3) digitalWrite(DIGIT3, HIGH);
-  if (digit == 4) digitalWrite(DIGIT4, HIGH);
+  digitalWrite(DIGIT1, !(digit == 1));
+  digitalWrite(DIGIT2, !(digit == 2));
+  digitalWrite(DIGIT3, !(digit == 3));
+  digitalWrite(DIGIT4, !(digit == 4));
 }
 
 // Function to deactivate all digits
 void deactivateDigits() {
-  digitalWrite(DIGIT1, LOW);
-  digitalWrite(DIGIT2, LOW);
-  digitalWrite(DIGIT3, LOW);
-  digitalWrite(DIGIT4, LOW);
+  digitalWrite(DIGIT1, HIGH);
+  digitalWrite(DIGIT2, HIGH);
+  digitalWrite(DIGIT3, HIGH);
+  digitalWrite(DIGIT4, HIGH);
 }
