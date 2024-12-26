@@ -66,26 +66,45 @@ void setup() {
 }
 
 int lastDisplayedValue = -1; // Store last displayed value
+int displayValue = 0; // Global display value
+int sampleCount = 0;
+float totalDistance = 0;
+unsigned long long previousMillis = 0;
+float avgDistance = 0;
+const long interval = 1000; // 1 second interval
+
 // Loop Function
 void loop() {
+  unsigned long currentMillis = millis();  // Current time
+
+  // Measure distance and accumulate
   float distance = measureDistance();
-  if(abs(lastDisplayedValue - distance) > 2){//only two centimeter ka fluctuation ko neglect karo, to avoid flickring on 7 segment display even when we hold the device in our hands (our hands shake in air when we hold device and this can cause distance fluctuation, (anti shaking mode))
-    lastDisplayedValue = distance;
-  }else{
-    distance = lastDisplayedValue;
+  totalDistance += distance;  // Add current reading
+  sampleCount++;              // Count samples
+
+  // Update every 1 second
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;  // Reset timer
+
+    // Calculate average distance
+    avgDistance = totalDistance / sampleCount;
+
+    // Update the global display value
+    displayValue = (int)avgDistance;
+
+    // Reset for next cycle
+    totalDistance = 0;
+    sampleCount = 0;
   }
 
-  int displayValue = (int)distance;
+  // Always display the latest value (no flicker)
+  displayNumber(displayValue);
 
-  displayNumber(displayValue); // Update display
-  delayMicroseconds(2000);
-  //digitalWrite(BLUE_LED,  distance <= 40 ? HIGH : LOW);
-  
+  delayMicroseconds(2000); // Short delay for multiplexing
 }
-
 //calculate distance 5 times and returns its average (to avoid small fluctuation)
 float measureDistance() {
-  const int samples = 1; // Take 10 samples
+  const samples = 1; // taking multiple samples messing with delays and 7 segment multiplexing, so keep it to 1 only.
   float total = 0;
 
   for (int i = 0; i < samples; i++) {
